@@ -4,6 +4,7 @@ import sys
 import random
 import datetime
 import time
+import json
 
 import pygame
 
@@ -30,6 +31,7 @@ STATE_PLAY = 1
 STATE_RESPAWN = 2
 STATE_GAME_OVER = 3
 STATE_WON = 4
+STATE_RATING = 5
 
 # GAME MAP
 MAP = [
@@ -62,6 +64,10 @@ WIDTH = len(MAP[0]) * TILE_SIZE
 HEIGHT = len(MAP) * TILE_SIZE
 FPS = 25
 
+FONT_FILE = 'data/font/pacmania_cyrillic.otf'
+FONT_FILE_DIGITS = 'data/font/Emulogic-zrEw.ttf'
+RATING_FILE = 'data/score/top.json'
+
 pygame.init()
 pygame.mixer.init()
 
@@ -71,7 +77,7 @@ class Game:
         self.screen = pygame.display.set_mode((WIDTH, HEIGHT))
         pygame.display.set_caption("Pacman")
         self.clock = pygame.time.Clock()
-        self.font_name = pygame.font.match_font('arial')
+        #self.font_name = pygame.font.match_font('arial')
         self.running = True
         self.state = STATE_MENU
 
@@ -87,11 +93,32 @@ class Game:
 
         self.button_play = Button('Начать игру', 32, WHITE, RED, WIDTH // 2, 225, self.start_game)
         self.button_score = Button('Рейтинг', 32, WHITE, RED, WIDTH // 2, 300, self.show_score)
+        self.button_back = Button('Назад', 32, WHITE, RED, WIDTH // 2, HEIGHT - 100, self.back_to_menu)
 
         # self.food_sound = pygame.mixer.Sound('data/sound/food.mp3')
         # self.died_sound = pygame.mixer.Sound('data/sound/died.mp3')
 
+        self.rating = dict()
+        self.load_rating()
+        #self.save_rating()
         self.load_map()
+
+    def load_rating(self):
+        with open(RATING_FILE) as f:
+            self.rating = json.load(f)
+
+    def save_rating(self):
+        self.rating = dict()
+        self.rating['Арсений4'] = 444
+        self.rating['Арсений2'] = 222
+        self.rating['Арсений'] = 111
+
+
+        #self.rating['Арсений'] = 100
+        #self.rating['Я'] = 344
+        with open(RATING_FILE, 'w') as f:
+            json.dump(self.rating, f)
+
 
     def load_map(self):
         for y in range(len(MAP)):
@@ -109,9 +136,8 @@ class Game:
             self.ghost_sprites.add(ghost)
             self.ghosts.append(ghost)
 
-    def draw_text(self, txt, size, color, x, y):
-        font = pygame.font.Font(self.font_name, size)
-        font.bold = True
+    def draw_text(self, txt, size, color, x, y, font_type=FONT_FILE):
+        font = pygame.font.Font(font_type, size)
         text_surface = font.render(txt, True, color)
         text_rect = text_surface.get_rect()
         text_rect.midtop = (x, y)
@@ -122,7 +148,10 @@ class Game:
         self.lives = 3
 
     def show_score(self):
-        print('Я')
+        self.state = STATE_RATING
+
+    def back_to_menu(self):
+        self.state = STATE_MENU
 
     def menu_events(self):
         for event in pygame.event.get():
@@ -148,6 +177,28 @@ class Game:
         # pygame.draw.arc(self.screen, RED,
         #                 (50, 30, 50, 50),
         #                 math.pi * 5 / 6, 2 * math.pi, 25)
+
+    def rating_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
+                self.state = STATE_MENU
+            self.button_back.process()
+
+    def rating_draw(self):
+        self.screen.fill(BLACK)
+        self.draw_text('PAC-MAN', 64, YELLOW, WIDTH // 2, 125)
+
+        h = 0
+        for name, score in self.rating.items():
+            self.draw_text(f'{name}', 32, WHITE, 150, 225 + h * 40)
+            self.draw_text(f'{score}', 32, WHITE, 350, 225 + h * 40)
+            #self.draw_text(f'{name} ··· {score}', 32, WHITE, WIDTH // 2, 225 + h * 40)
+            h += 1
+        self.button_back.draw(self.screen)
+        self.draw_text(f'© 2022-{CURRENT_YEAR} Чалдаев Арсений', 10, GRAY, WIDTH - 85, HEIGHT - 30)
+
 
     def play_events(self):
         for event in pygame.event.get():
@@ -238,6 +289,9 @@ class Game:
                     if event.type == pygame.QUIT:
                         self.running = False
                 # self.draw_text(f'GAME OVER', 18, WIDTH / 2, 5)
+            elif self.state == STATE_RATING:
+                self.rating_events()
+                self.rating_draw()
             self.clock.tick(FPS)
             pygame.display.flip()
 
@@ -469,8 +523,7 @@ class Button:
         self.color = color
         self.hoverColor = hover_color
         self.onClickFunction = on_click_function
-        self.font = pygame.font.SysFont("Arial", size)
-        self.font.bold = True
+        self.font = pygame.font.Font(FONT_FILE, size)
         self.text_surface = self.font.render(self.text, True, self.color)
         self.text_rect = self.text_surface.get_rect()
         self.text_rect.midtop = (x, y)
